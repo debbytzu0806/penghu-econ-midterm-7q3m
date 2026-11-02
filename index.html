@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="澎湖 115 期中考經濟學線上作答" />
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    <title>澎湖 115 期中考｜經濟學作答</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">ECONOMICS MIDTERM</p>
+          <h1>澎湖 115 期中考｜經濟學</h1>
+          <p class="subtitle">選擇題 20 題（60 分）＋問答題 4 題（40 分），滿分 100 分。</p>
+        </div>
+        <div class="score-card" aria-live="polite">
+          <span>選擇題成績</span>
+          <strong><span id="score">尚未交卷</span></strong>
+        </div>
+      </header>
+
+      <section id="student-panel" class="student-panel" aria-labelledby="student-title">
+        <p class="eyebrow">STUDENT CHECK-IN</p>
+        <h2 id="student-title">開始作答</h2>
+        <p>請填寫姓名與學號。題目順序會在每次開啟時隨機排列。</p>
+        <form id="student-form" class="student-form">
+          <label>姓名<input id="student-name" name="name" type="text" required autocomplete="name" /></label>
+          <label>學號<input id="student-id" name="studentId" type="text" required inputmode="numeric" /></label>
+          <button class="submit-button" type="submit">開始作答</button>
+        </form>
+      </section>
+
+      <div id="exam-content" class="exam-layout" hidden>
+        <section class="quiz-card" aria-labelledby="question-label">
+          <div class="question-toolbar">
+            <div>
+              <p id="question-label" class="question-label">隨機題目</p>
+              <p id="question-number" class="question-number">準備出題中</p>
+            </div>
+            <span id="point-badge" class="point-badge"></span>
+          </div>
+
+          <section id="results-panel" class="results-panel" hidden aria-live="polite">
+            <p class="eyebrow">EXAM SUBMITTED</p>
+            <p class="result-label">作答已送出</p>
+            <p id="result-score" class="result-score">—</p>
+            <p id="result-detail" class="result-detail">問答題共 40 分，待老師人工批改後計入總成績。</p>
+            <div>
+              <h2>老師後台</h2>
+              <p class="pending-note">老師會收到姓名、學號、全部答案與選擇題成績；問答題將由老師批改。</p>
+            </div>
+          </section>
+
+          <div class="question-image-wrap">
+            <img id="question-image" class="question-image" alt="經濟學考題" />
+          </div>
+
+          <div id="multiple-choice-area" class="answer-area">
+            <p class="instruction">請選擇你的答案</p>
+            <div id="answer-buttons" class="answer-buttons" aria-label="答案選項">
+              <button type="button" data-answer="a">A</button>
+              <button type="button" data-answer="b">B</button>
+              <button type="button" data-answer="c">C</button>
+              <button type="button" data-answer="d">D</button>
+            </div>
+          </div>
+
+          <div id="short-answer-area" class="answer-area" hidden>
+            <label class="short-answer-label" for="short-answer">請在下方作答（可輸入多行文字）</label>
+            <textarea id="short-answer" rows="9" placeholder="請輸入你的答案…"></textarea>
+          </div>
+          <p id="feedback" class="feedback" aria-live="polite"></p>
+
+          <div class="exam-controls">
+            <button id="previous-button" class="secondary-button" type="button">上一題</button>
+            <button id="next-button" class="secondary-button" type="button">下一題</button>
+            <button id="submit-button" class="submit-button" type="button">交卷</button>
+          </div>
+        </section>
+
+        <aside class="exam-sidebar" aria-label="考卷進度">
+          <p class="eyebrow">EXAM PROGRESS</p>
+          <h2>作答進度</h2>
+          <dl class="stats">
+            <div><dt>總題數</dt><dd>24 題</dd></div>
+            <div><dt>目前作答</dt><dd id="current-position">第 1 題</dd></div>
+            <div><dt>已作答</dt><dd id="answered-count">0 題</dd></div>
+            <div><dt>尚未作答</dt><dd id="unanswered-count">24 題</dd></div>
+          </dl>
+          <div id="question-nav" class="question-nav" aria-label="題目清單"></div>
+          <button id="restart-button" class="text-button" type="button">重新洗牌並開始新考卷</button>
+        </aside>
+      </div>
+      <iframe id="submit-frame" name="submit-frame" title="送出答案" hidden></iframe>
+      <footer>交卷後：選擇題由後台自動批改；問答題由老師人工批改。</footer>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
