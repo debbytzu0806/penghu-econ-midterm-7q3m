@@ -188,3 +188,44 @@ window.addEventListener("blur", () => {
   }, 120);
 });
 order = shuffledOrder(); renderQuestion();
+
+
+// 問答題也送往後台初評，並在交卷後合併顯示 100 分制成績。
+function requestMcGrade() {
+  if (!SCORE_ENDPOINT) return;
+  const answers = order.map((question) => ({ id: question.id, answer: responses[question.id] }));
+  const script = document.createElement("script");
+  script.src = SCORE_ENDPOINT + "?callback=showMcGrade&answers=" + encodeURIComponent(JSON.stringify(answers));
+  script.onerror = () => { resultDetail.textContent = "作答已送出；成績請由老師在後台查看。"; };
+  document.body.append(script);
+}
+window.showMcGrade = (result) => {
+  if (!result.ok) return;
+  const shortScore = Number(result.saScore || 0);
+  const total = Number(result.total ?? (Number(result.score || 0) + shortScore));
+  scoreElement.textContent = total + " / 100 分";
+  resultScore.textContent = total + " / 100 分";
+  resultDetail.textContent = "選擇題答對 " + result.correct + " 題（" + result.score + " / 60 分）；問答題關鍵字初評 " + shortScore + " / 40 分。老師可覆核與改分。";
+  let list = document.querySelector("#wrong-list");
+  if (!list) {
+    list = document.createElement("div");
+    list.id = "wrong-list";
+    list.className = "wrong-list";
+    resultsPanel.append(list);
+  }
+  list.replaceChildren();
+  if (!result.wrong.length) {
+    const perfect = document.createElement("p");
+    perfect.className = "perfect-score";
+    perfect.textContent = "選擇題全部答對！";
+    list.append(perfect);
+    return;
+  }
+  result.wrong.forEach((item) => {
+    const position = order.findIndex((question) => question.id === item.id) + 1;
+    const text = document.createElement("p");
+    text.className = "wrong-item";
+    text.textContent = "考卷第 " + position + " 題：你的答案 " + item.selected.toUpperCase() + "；正確答案 " + item.correct.toUpperCase();
+    list.append(text);
+  });
+};
