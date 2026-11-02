@@ -22,14 +22,19 @@ const submitButton = document.querySelector("#submit-button");
 const resultsPanel = document.querySelector("#results-panel");
 const resultScore = document.querySelector("#result-score");
 const resultDetail = document.querySelector("#result-detail");
+const wrongList = document.querySelector("#wrong-list");
 const studentPanel = document.querySelector("#student-panel");
 const studentForm = document.querySelector("#student-form");
 const examContent = document.querySelector("#exam-content");
+const proctoringStatus = document.querySelector("#proctoring-status");
+const restartButton = document.querySelector("#restart-button");
 let order = [];
 let currentIndex = 0;
 let responses = {};
 let submitted = false;
 let student = null;
+let examStarted = false;
+let lockedForFocusLoss = false;
 
 function assetName(question) { return `assets/${question.type === "mc" ? "mc" : "sa"}/${String(question.source).padStart(2, "0")}.png`; }
 function shuffledOrder() {
@@ -100,10 +105,42 @@ function submitToTeacher(payload) {
   field.type = "hidden"; field.name = "payload"; field.value = JSON.stringify(payload);
   form.append(field); document.body.append(form); form.submit(); form.remove();
 }
-function submitExam() {
+function requestMcGrade() {
+  if (!SCORE_ENDPOINT) return;
+  const choices = order.filter((question) => question.type === "mc")
+    .map((question) => ({ id: question.id, answer: responses[question.id] }));
+  const script = document.createElement("script");
+  script.src = `${SCORE_ENDPOINT}?callback=showMcGrade&answers=${encodeURIComponent(JSON.stringify(choices))}`;
+  script.onerror = () => {
+    resultDetail.textContent = "作答已送出；選擇題成績請由老師在後台查看。";
+  };
+  document.body.append(script);
+}
+window.showMcGrade = (result) => {
+  if (!result.ok) return;
+  scoreElement.textContent = `${result.score} / 60 分`;
+  resultScore.textContent = `${result.score} / 60 分`;
+  resultDetail.textContent = `答對 ${result.correct} 題；問答題共 40 分，待老師人工批改後計入總成績。`;
+  wrongList.replaceChildren();
+  if (!result.wrong.length) {
+    const perfect = document.createElement("p");
+    perfect.className = "perfect-score";
+    perfect.textContent = "選擇題全部答對！";
+    wrongList.append(perfect);
+    return;
+  }
+  result.wrong.forEach((item) => {
+    const position = order.findIndex((question) => question.id === item.id) + 1;
+    const text = document.createElement("p");
+    text.className = "wrong-item";
+    text.textContent = `考卷第 ${position} 題：你的答案 ${item.selected.toUpperCase()}；正確答案 ${item.correct.toUpperCase()}`;
+    wrongList.append(text);
+  });
+};
+function submitExam(forceReason = "") {
   recordShortAnswer();
   const unanswered = order.filter((question) => !hasResponse(question));
-  if (unanswered.length) {
+  if (!forceReason && unanswered.length) {
     feedback.textContent = `尚有 ${unanswered.length} 題未作答，請從右側題號完成後再交卷。`;
     feedback.className = "feedback error";
     return;
@@ -111,79 +148,43 @@ function submitExam() {
   submitted = true;
   submitToTeacher({
     submittedAt: new Date().toISOString(), name: student.name, studentId: student.studentId,
+    proctoring: forceReason ? { status: "自動交卷", reason: forceReason, at: new Date().toISOString() } : { status: "正常交卷" },
     questionOrder: order.map((question, index) => ({ position: index + 1, id: question.id, type: question.type })),
     answers: order.map((question, index) => ({ position: index + 1, id: question.id, answer: responses[question.id] })),
   });
-  scoreElement.textContent = "已送出";
-  resultScore.textContent = "作答已送出";
-  resultDetail.textContent = SCORE_ENDPOINT
-    ? "選擇題將由系統自動批改（60 分）；問答題共 40 分，待老師人工批改後計入總成績。"
-    : "老師後台尚未連線；請先完成後台設定後再提供學生使用。";
-  resultsPanel.hidden = false; submitButton.disabled = true; renderQuestion();
+  scoreElement.textContent = forceReason ? "已自動交卷" : "已送出";
+  resultScore.textContent = forceReason ? "已自動交卷" : "作答已送出";
+  resultDetail.textContent = forceReason
+    ? `偵測到${forceReason}，系統已自動交卷；未作答題目不計分。`
+    : (SCORE_ENDPOINT ? "選擇題成績計算中…" : "老師後台尚未連線；請先完成後台設定後再提供學生使用。");
+  resultsPanel.hidden = false; submitButton.disabled = true; renderQuestion(); requestMcGrade();
+}
+function lockExamForFocusLoss() {
+  if (!examStarted || submitted || lockedForFocusLoss) return;
+  lockedForFocusLoss = true;
+  submitExam("離開考試頁面");
 }
 studentForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const name = document.querySelector("#student-name").value.trim();
   const studentId = document.querySelector("#student-id").value.trim();
   if (!name || !studentId) return;
-  student = { name, studentId }; studentPanel.hidden = true; examContent.hidden = false; renderQuestion();
+  student = { name, studentId }; studentPanel.hidden = true; examContent.hidden = false;
+  examStarted = true; restartButton.hidden = true;
+  proctoringStatus.hidden = false; renderQuestion();
 });
 answerButtons.forEach((button) => button.addEventListener("click", selectAnswer));
 shortAnswer.addEventListener("input", recordShortAnswer);
 document.querySelector("#previous-button").addEventListener("click", () => { currentIndex -= 1; renderQuestion(); });
 document.querySelector("#next-button").addEventListener("click", () => { currentIndex += 1; renderQuestion(); });
-submitButton.addEventListener("click", submitExam);
-document.querySelector("#restart-button").addEventListener("click", () => window.location.reload());
-order = shuffledOrder(); renderQuestion();
-
-
-function requestMcGrade() {
-  if (window.__gradeRequested || !SCORE_ENDPOINT) return;
-  window.__gradeRequested = true;
-  const choices = order.filter((question) => question.type === "mc")
-    .map((question) => ({ id: question.id, answer: responses[question.id] }));
-  const script = document.createElement("script");
-  script.src = SCORE_ENDPOINT + "?callback=showMcGrade&answers=" + encodeURIComponent(JSON.stringify(choices));
-  script.onerror = () => { resultDetail.textContent = "作答已送出；選擇題成績請由老師在後台查看。"; };
-  document.body.append(script);
-}
-window.showMcGrade = (result) => {
-  if (!result.ok) return;
-  scoreElement.textContent = result.score + " / 60 分";
-  resultScore.textContent = result.score + " / 60 分";
-  resultDetail.textContent = "答對 " + result.correct + " 題；問答題共 40 分，待老師人工批改後計入總成績。";
-  let wrongList = document.querySelector("#wrong-list");
-  if (!wrongList) {
-    wrongList = document.createElement("div");
-    wrongList.id = "wrong-list";
-    resultsPanel.append(wrongList);
-  }
-  wrongList.replaceChildren();
-  wrongList.style.display = "grid";
-  wrongList.style.gap = "8px";
-  wrongList.style.marginTop = "14px";
-  if (!result.wrong.length) {
-    const perfect = document.createElement("p");
-    perfect.textContent = "選擇題全部答對！";
-    perfect.style.color = "#16824b";
-    perfect.style.fontWeight = "800";
-    wrongList.append(perfect);
-    return;
-  }
-  result.wrong.forEach((item) => {
-    const position = order.findIndex((question) => question.id === item.id) + 1;
-    const text = document.createElement("p");
-    text.textContent = "考卷第 " + position + " 題：你的答案 " + item.selected.toUpperCase() + "；正確答案 " + item.correct.toUpperCase();
-    text.style.margin = "0";
-    text.style.padding = "9px 11px";
-    text.style.border = "1px solid #efc3bf";
-    text.style.borderRadius = "8px";
-    text.style.color = "#8e2723";
-    text.style.background = "#fff7f5";
-    wrongList.append(text);
-  });
-};
-const gradeObserver = new MutationObserver(() => {
-  if (!resultsPanel.hidden && submitted) requestMcGrade();
+submitButton.addEventListener("click", () => submitExam());
+restartButton.addEventListener("click", () => window.location.reload());
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) lockExamForFocusLoss();
 });
-gradeObserver.observe(resultsPanel, { attributes: true, attributeFilter: ["hidden"] });
+window.addEventListener("blur", () => {
+  window.setTimeout(() => {
+    if (!document.hasFocus()) lockExamForFocusLoss();
+  }, 120);
+});
+order = shuffledOrder(); renderQuestion();
