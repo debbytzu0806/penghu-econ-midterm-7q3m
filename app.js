@@ -135,3 +135,55 @@ document.querySelector("#next-button").addEventListener("click", () => { current
 submitButton.addEventListener("click", submitExam);
 document.querySelector("#restart-button").addEventListener("click", () => window.location.reload());
 order = shuffledOrder(); renderQuestion();
+
+
+function requestMcGrade() {
+  if (window.__gradeRequested || !SCORE_ENDPOINT) return;
+  window.__gradeRequested = true;
+  const choices = order.filter((question) => question.type === "mc")
+    .map((question) => ({ id: question.id, answer: responses[question.id] }));
+  const script = document.createElement("script");
+  script.src = SCORE_ENDPOINT + "?callback=showMcGrade&answers=" + encodeURIComponent(JSON.stringify(choices));
+  script.onerror = () => { resultDetail.textContent = "作答已送出；選擇題成績請由老師在後台查看。"; };
+  document.body.append(script);
+}
+window.showMcGrade = (result) => {
+  if (!result.ok) return;
+  scoreElement.textContent = result.score + " / 60 分";
+  resultScore.textContent = result.score + " / 60 分";
+  resultDetail.textContent = "答對 " + result.correct + " 題；問答題共 40 分，待老師人工批改後計入總成績。";
+  let wrongList = document.querySelector("#wrong-list");
+  if (!wrongList) {
+    wrongList = document.createElement("div");
+    wrongList.id = "wrong-list";
+    resultsPanel.append(wrongList);
+  }
+  wrongList.replaceChildren();
+  wrongList.style.display = "grid";
+  wrongList.style.gap = "8px";
+  wrongList.style.marginTop = "14px";
+  if (!result.wrong.length) {
+    const perfect = document.createElement("p");
+    perfect.textContent = "選擇題全部答對！";
+    perfect.style.color = "#16824b";
+    perfect.style.fontWeight = "800";
+    wrongList.append(perfect);
+    return;
+  }
+  result.wrong.forEach((item) => {
+    const position = order.findIndex((question) => question.id === item.id) + 1;
+    const text = document.createElement("p");
+    text.textContent = "考卷第 " + position + " 題：你的答案 " + item.selected.toUpperCase() + "；正確答案 " + item.correct.toUpperCase();
+    text.style.margin = "0";
+    text.style.padding = "9px 11px";
+    text.style.border = "1px solid #efc3bf";
+    text.style.borderRadius = "8px";
+    text.style.color = "#8e2723";
+    text.style.background = "#fff7f5";
+    wrongList.append(text);
+  });
+};
+const gradeObserver = new MutationObserver(() => {
+  if (!resultsPanel.hidden && submitted) requestMcGrade();
+});
+gradeObserver.observe(resultsPanel, { attributes: true, attributeFilter: ["hidden"] });
